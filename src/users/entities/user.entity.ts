@@ -15,5 +15,17 @@ export class UserEntity implements User {
     password: string | null;
 
     @ApiProperty()
+    loginAttempts: number;
+
+    @ApiProperty({ required: false })
+    lockExpires: Date | null;
+
+    @ApiProperty()
+    isVerified: boolean;
+
+    @ApiProperty({ required: false })
+    verifyToken: string | null;
+
+    @ApiProperty()
     createdAt: Date;
 }

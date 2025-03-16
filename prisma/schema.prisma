@@ -14,7 +14,11 @@ model User {
   email    String   @unique
   password String?
   meetings Meeting[]
-  tokens    Token[]
+  loginAttempts    Int       @default(0)
+  lockExpires      DateTime?
+  isVerified       Boolean   @default(false)
+  verifyToken      String?   @unique
+  authTokens       Token[]
 }
 
 model Meeting {
@@ -29,8 +33,8 @@ model Meeting {
 
 model Token {
   id        Int      @id @default(autoincrement())
-  token     String   @unique
+  value     String   @unique
   userId    Int
-  expires   DateTime
+  expiresAt DateTime
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
