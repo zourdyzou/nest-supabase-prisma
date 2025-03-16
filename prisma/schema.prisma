@@ -14,6 +14,7 @@ model User {
   email    String   @unique
   password String?
   meetings Meeting[]
+  tokens    Token[]
 }
 
 model Meeting {
@@ -24,4 +25,12 @@ model Meeting {
   notes       String?
   userId      Int
   user        User     @relation(fields: [userId], references: [id])
+}
+
+model Token {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  expires   DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

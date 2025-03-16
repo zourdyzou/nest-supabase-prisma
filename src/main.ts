@@ -7,6 +7,9 @@ import { rateLimit } from 'express-rate-limit';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Enable CORS
+  app.enableCors();
+  
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
 
   app.use(rateLimit({
@@ -15,15 +18,18 @@ async function bootstrap() {
   }));
 
   const config = new DocumentBuilder()
-    .setTitle('test')
-    .setDescription('The Test API description')
-    .setVersion('0.1')
+    .setTitle('AI Meeting Notes API')
+    .setDescription('API for managing meetings and generating AI meeting notes')
+    .setVersion('1.0')
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup('docs', app, document);
 
-
-  await app.listen(3000);
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+  console.log(`Application is running on: http://localhost:${port}`);
+  console.log(`Swagger documentation available at: http://localhost:${port}/docs`);
 }
 bootstrap();
