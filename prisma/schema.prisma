@@ -16,6 +16,8 @@ model User {
   meetings Meeting[]
   loginAttempts    Int       @default(0)
   lockExpires      DateTime?
+  resetToken      String? 
+  resetTokenExpiry DateTime?
   isVerified       Boolean   @default(false)
   verifyToken      String?   @unique
   authTokens       Token[]

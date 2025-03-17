@@ -203,6 +203,83 @@ export class AuthService {
     return result.count;
   }
 
+  async requestPasswordReset(email: string): Promise<{ success: boolean }> {
+    const user = await this.usersService.findOneByEmail(email);
+    
+    // Always return success to prevent email enumeration attacks
+    if (!user) {
+      return { success: true };
+    }
+    
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date();
+    resetTokenExpiry.setHours(resetTokenExpiry.getHours() + 1); // 1 hour expiry
+    
+    // Store token in database
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { 
+        resetToken,
+        resetTokenExpiry
+      },
+    });
+    
+    // Send reset email
+    const frontendUrl = this.configService.get('FRONTEND_URL');
+    const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+    
+    await this.mailService.sendMail({
+      to: user.email,
+      subject: 'Password Reset Request',
+      template: 'password-reset',
+      context: {
+        name: user.name,
+        resetUrl,
+      },
+    });
+    
+    return { success: true };
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ success: boolean }> {
+    // Find user with this token
+    const user = await this.prisma.user.findFirst({
+      where: { 
+        resetToken: token,
+        resetTokenExpiry: { gt: new Date() } // Token must not be expired
+      },
+    });
+    
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+    
+    // Hash new password
+    const saltRounds = parseInt(this.configService.get('BCRYPT_SALT_ROUNDS'));
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    
+    // Update user password and clear reset token
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetToken: null,
+        resetTokenExpiry: null,
+        // Reset login attempts and lock expires if they exist
+        loginAttempts: 0,
+        lockExpires: null
+      },
+    });
+    
+    // Invalidate all existing refresh tokens for this user for security
+    await this.prisma.token.deleteMany({
+      where: { userId: user.id },
+    });
+    
+    return { success: true };
+  }
+
   private async generateTokens(user: any): Promise<TokenResponseDto> {
     const payload = { email: user.email, sub: user.id };
     
