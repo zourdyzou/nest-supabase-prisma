@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verify Your Email</title>
+  <title>Account Notification</title>
   <style>
     /* Base styles */
     body {
@@ -40,7 +40,7 @@
     }
     
     h1 {
-      color: #2c3e50;
+      color: #3498db;
       font-size: 24px;
       margin-top: 0;
       margin-bottom: 15px;
@@ -49,6 +49,32 @@
     p {
       margin: 15px 0;
       font-size: 16px;
+    }
+    
+    .notification-box {
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 5px;
+      background-color: #f8f9fa;
+      border-left: 4px solid #3498db;
+    }
+    
+    .notification-title {
+      margin-top: 0;
+      font-size: 18px;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+    
+    .notification-meta {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #7f8c8d;
+    }
+    
+    .notification-detail {
+      margin-top: 5px;
+      color: #555;
     }
     
     .button {
@@ -67,17 +93,6 @@
     
     .button:hover {
       background-color: #2980b9;
-    }
-    
-    .link-fallback {
-      word-break: break-all;
-      font-size: 14px;
-      color: #555;
-      margin-top: 15px;
-      padding: 10px;
-      background-color: #f5f5f5;
-      border-radius: 4px;
-      border: 1px solid #eeeeee;
     }
     
     .footer {
@@ -109,25 +124,38 @@
 <body>
   <div class="container">
     <div class="header">
-      <!-- Add your logo here if you have one -->
       <!-- <img src="https://yourapp.com/logo.png" alt="Logo" class="logo"> -->
-      <h2>Email Verification</h2>
+      <h2>Account Notification</h2>
     </div>
     
     <div class="content">
-      <h1>Hello, {{name}}!</h1>
-      <p>Thank you for signing up. To start using our service, please verify your email address by clicking the button below:</p>
+      <h1>Important Account Notification</h1>
+      <p>Hello {{name}},</p>
+      <p>We're contacting you regarding a recent activity on your account.</p>
       
-      <a href="{{verificationUrl}}" class="button">Verify Email Address</a>
+      <div class="notification-box">
+        <h3 class="notification-title">{{notificationTitle}}</h3>
+        <p>{{notificationMessage}}</p>
+        
+        <div class="notification-meta">
+          <div class="notification-detail"><strong>Date:</strong> {{notificationDate}}</div>
+          <div class="notification-detail"><strong>IP Address:</strong> {{ipAddress}}</div>
+          <div class="notification-detail"><strong>Device:</strong> {{deviceInfo}}</div>
+        </div>
+      </div>
       
-      <p>This verification link will expire in 24 hours for security reasons.</p>
+      {{#if actionRequired}}
+      <p>This activity requires your attention. Please review your account settings and take appropriate action.</p>
+      <a href="{{securitySettingsUrl}}" class="button">Review Account Security</a>
+      {{else}}
+      <p>No action is required from your side. This is just a notification for your security.</p>
+      {{/if}}
       
-      <p>If you're having trouble with the button above, you can copy and paste the URL below into your browser:</p>
-      <div class="link-fallback">{{verificationUrl}}</div>
+      <p>If you did not perform this action, please contact our support team immediately.</p>
     </div>
     
     <div class="footer">
-      <p>If you didn't create an account, please ignore this email or contact support if you have concerns.</p>
+      <p>This is an automated message. Please do not reply to this email.</p>
       <p>&copy; {{currentYear}} Your Company. All rights reserved.</p>
     </div>
   </div>

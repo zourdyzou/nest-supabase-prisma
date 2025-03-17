@@ -10,9 +10,9 @@
   <a href="https://jwt.io" target="_blank"><img src="https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white" alt="JWT" /></a>
 </p>
 
-# NestJS Authentication API
+# Nest Supabase Starter
 
-A robust, secure authentication and user management API built with NestJS, Prisma, and Supabase. This API provides complete authentication flows including signup with email verification, login with rate limiting, password reset, and token-based authentication.
+A robust, secure authentication starter kit built with NestJS, Prisma, and Supabase. This starter kit provides complete authentication flows including signup with email verification, login with rate limiting, password reset, and token-based authentication.
 
 ## Features
 
@@ -253,6 +253,107 @@ The API includes comprehensive test coverage:
 - Two-factor authentication flow
 - CSRF protection
 
+## Email Service with Resend
+
+This API uses [Resend](https://resend.com) for reliable email delivery with beautiful HTML templates. Resend provides:
+
+- Superior email deliverability rates
+- Email analytics and tracking
+- Beautiful, responsive HTML email templates
+- Developer-friendly API
+- Reliable infrastructure
+
+### Email Templates
+
+The application includes professionally designed, responsive email templates for:
+- Email verification
+- Password reset
+- Welcome emails
+- Account notifications
+
+Templates are built using Handlebars for dynamic content injection and support both desktop and mobile email clients.
+
+### Using the Mail Service
+
+To send emails using the templates, inject the `MailService` into your service or controller:
+
+```typescript
+constructor(private mailService: MailService) {}
+```
+
+Then use the `sendMail` method with the appropriate template and context:
+
+```typescript
+// Send welcome email
+await this.mailService.sendMail({
+  to: user.email,
+  subject: 'Welcome to Our Platform!',
+  template: 'welcome',
+  context: {
+    name: user.name,
+    dashboardUrl: `${this.configService.get('FRONTEND_URL')}/dashboard`
+  }
+});
+
+// Send verification email
+await this.mailService.sendMail({
+  to: user.email,
+  subject: 'Please Verify Your Email',
+  template: 'email-verification',
+  context: {
+    name: user.name,
+    verificationUrl: `${this.configService.get('FRONTEND_URL')}/verify?token=${verifyToken}`
+  }
+});
+
+// Send password reset email
+await this.mailService.sendMail({
+  to: user.email,
+  subject: 'Reset Your Password',
+  template: 'password-reset',
+  context: {
+    resetUrl: `${this.configService.get('FRONTEND_URL')}/reset-password?token=${resetToken}`
+  }
+});
+
+// Send account notification
+await this.mailService.sendMail({
+  to: user.email,
+  subject: 'Account Security Alert',
+  template: 'account-notification',
+  context: {
+    name: user.name,
+    notificationTitle: 'New Login Detected',
+    notificationMessage: 'A new login was detected from an unknown device.',
+    notificationDate: new Date().toLocaleString(),
+    ipAddress: '192.168.1.1',
+    deviceInfo: 'Chrome on Windows',
+    actionRequired: true,
+    securitySettingsUrl: `${this.configService.get('FRONTEND_URL')}/settings/security`
+  }
+});
+```
+
+Each template requires specific context variables to fill in the dynamic content of the email.
+
+### Email Configuration
+
+Configure the email service in your `.env` file:
+
+```
+# Email Configuration
+RESEND_API_KEY=re_your_api_key_here
+EMAIL_FROM=noreply@yourdomain.com
+```
+
+### Development Mode
+
+In development mode, emails are not actually sent - they are logged to the console for easy debugging.
+
+### Custom Templates
+
+Email templates are located in `src/mail/templates` as `.hbs` files. You can customize these templates to match your brand identity without changing any code.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
@@ -264,3 +365,111 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Supabase Documentation](https://supabase.com/docs)
 - [JWT.io](https://jwt.io/)
 - [TOTP RFC](https://datatracker.ietf.org/doc/html/rfc6238)
+
+## Contributing
+
+Thank you for considering contributing to this project! Here's how you can help make this project better.
+
+### Code of Conduct
+
+This project adheres to a Code of Conduct that all contributors are expected to follow. Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) to understand what actions will and will not be tolerated.
+
+### Development Setup
+
+1. Fork the repository
+2. Clone your fork: `git clone https://github.com/YOUR-USERNAME/nestjs-auth-api.git`
+3. Create a new branch: `git checkout -b feature/your-feature-name`
+4. Install dependencies: `npm install`
+5. Copy .env.example to .env and configure for local development
+6. Start the development server: `npm run dev`
+
+### Development Process
+
+1. Make your changes and ensure they follow the project's coding style
+2. Add or update tests as necessary
+3. Make sure all tests pass: `npm test`
+4. Update documentation if needed
+5. Commit your changes following the commit message convention
+
+### Pull Request Process
+
+1. Update the README.md or relevant documentation with details of your changes if applicable
+2. Make sure your PR passes all CI checks
+3. The PR will be merged once it receives approval from a maintainer
+
+### Commit Message Convention
+
+This project follows the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+Examples:
+- `feat: add two-factor authentication`
+- `fix: correct email template rendering`
+- `docs: update API documentation`
+- `test: add missing test for auth controller`
+
+### Types:
+- `feat`: A new feature
+- `fix`: A bug fix
+- `docs`: Documentation only changes
+- `style`: Changes that don't affect the code's meaning (white-space, formatting, etc)
+- `refactor`: A code change that neither fixes a bug nor adds a feature
+- `perf`: A code change that improves performance
+- `test`: Adding missing tests or correcting existing tests
+- `build`: Changes that affect the build system or external dependencies
+- `ci`: Changes to our CI configuration files and scripts
+- `chore`: Other changes that don't modify src or test files
+
+### Reporting Bugs
+
+When reporting bugs, please use the bug report template and include:
+
+- A clear and descriptive title
+- Steps to reproduce the issue
+- Expected behavior
+- Actual behavior
+- Screenshots if applicable
+- Environment details (OS, Node.js version, etc.)
+
+### Feature Requests
+
+Feature requests are welcome! Please use the feature request template and provide:
+
+- A clear and descriptive title
+- A detailed description of the proposed feature
+- Any relevant examples or mockups
+- Explanation of why this feature would be useful to most users
+
+### Code Style
+
+This project uses ESLint and Prettier to enforce a consistent code style. Before committing, please ensure your code follows these standards:
+
+```bash
+# Run linting
+npm run lint
+
+# Fix linting issues
+npm run lint:fix
+
+# Format code with Prettier
+npm run format
+```
+
+### Testing Requirements
+
+All new features must include appropriate tests:
+
+- Unit tests for individual components
+- Integration tests for API endpoints
+- E2E tests for complete flows
+
+Test coverage should not decrease with new contributions.
+
+Thank you for contributing!
