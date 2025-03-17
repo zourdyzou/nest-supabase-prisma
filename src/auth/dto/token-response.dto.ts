@@ -9,5 +9,5 @@ export class TokenResponseDto {
   refresh_token: string;
   
   @ApiProperty()
-  user: UserEntity;
+  user: Partial<UserEntity>;
 } 

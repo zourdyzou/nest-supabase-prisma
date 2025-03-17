@@ -72,4 +72,17 @@ export class UserEntity implements User {
       example: '2023-10-15T14:30:00Z'
     })
     resetTokenExpiry: Date | null;
+
+    @ApiProperty({ 
+      required: false, 
+      description: 'Secret key for two-factor authentication',
+      example: null
+    })
+    twoFactorSecret: string | null;
+
+    @ApiProperty({ 
+      description: 'Whether two-factor authentication is enabled for this account',
+      example: false
+    })
+    twoFactorEnabled: boolean;
 }

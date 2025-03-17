@@ -21,6 +21,9 @@ model User {
   isVerified       Boolean   @default(false)
   verifyToken      String?   @unique
   authTokens       Token[]
+  twoFactorSecret  String?
+  twoFactorEnabled Boolean   @default(false)
+  createdAt        DateTime  @default(now())
 }
 
 model Meeting {
@@ -34,9 +37,13 @@ model Meeting {
 }
 
 model Token {
-  id        Int      @id @default(autoincrement())
-  value     String   @unique
-  userId    Int
-  expiresAt DateTime
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         Int      @id @default(autoincrement())
+  value      String   @unique
+  userId     Int
+  expiresAt  DateTime
+  deviceId   String?
+  userAgent  String?
+  ipAddress  String?
+  lastUsed   DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

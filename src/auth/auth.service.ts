@@ -1,4 +1,6 @@
-import { Injectable, ConflictException, InternalServerErrorException, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, InternalServerErrorException, UnauthorizedException, NotFoundException, Inject, Scope, BadRequestException } from '@nestjs/common';
+import { REQUEST } from '@nestjs/core';
+import { Request } from 'express';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
@@ -10,18 +12,26 @@ import { TokenResponseDto } from './dto/token-response.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from '../mail/mail.service';
+import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { UserEntity } from '../users/entities/user.entity';
+import * as speakeasy from 'speakeasy';
+import * as QRCode from 'qrcode';
+import { TwoFactorLoginDto } from './dto/two-factor.dto';
+import { PasswordPolicyService } from './password-policy.service';
 
-@Injectable()
+@Injectable({ scope: Scope.REQUEST })
 export class AuthService {
   constructor(
+    @Inject(REQUEST) private readonly request: Request,
     private usersService: UsersService,
     private jwtService: JwtService,
     private prisma: PrismaService,
     private configService: ConfigService,
-    private mailService: MailService
+    private mailService: MailService,
+    private passwordPolicyService: PasswordPolicyService
   ) {}
 
-  async login(loginDto: LoginDto): Promise<TokenResponseDto> {
+  async login(loginDto: LoginDto): Promise<TokenResponseDto | { tempToken: string, requiresTwoFactor: true }> {
     const { email, password } = loginDto;
     const user = await this.usersService.findOneByEmail(email);
     
@@ -76,11 +86,37 @@ export class AuthService {
       });
     }
     
+    // If 2FA is enabled, return a temporary token
+    if (user.twoFactorEnabled) {
+      const tempPayload: JwtPayload = { 
+        sub: user.id, 
+        email: user.email
+      };
+      
+      return {
+        tempToken: this.jwtService.sign(tempPayload, { expiresIn: '5m' }),
+        requiresTwoFactor: true
+      };
+    }
+    
+    // Standard login flow without 2FA
     return this.generateTokens(user);
   }
 
   async signup(createUserDto: CreateUserDto): Promise<TokenResponseDto> {
-    const { email, password } = createUserDto;
+    const { email, password, name } = createUserDto;
+    
+    // Validate password strength
+    const passwordValidation = this.passwordPolicyService.validatePassword(password, email, name);
+    
+    if (!passwordValidation.isValid) {
+      throw new BadRequestException({
+        message: 'Password is too weak',
+        score: passwordValidation.score,
+        feedback: passwordValidation.feedback
+      });
+    }
+    
     const saltRounds = this.configService.get('BCRYPT_SALT_ROUNDS');
     const hashedPassword = await bcrypt.hash(password, saltRounds);
     const verifyToken = crypto.randomBytes(32).toString('hex');
@@ -255,6 +291,21 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired reset token');
     }
     
+    // Validate password strength
+    const passwordValidation = this.passwordPolicyService.validatePassword(
+      newPassword, 
+      user.email, 
+      user.name
+    );
+    
+    if (!passwordValidation.isValid) {
+      throw new BadRequestException({
+        message: 'Password is too weak',
+        score: passwordValidation.score,
+        feedback: passwordValidation.feedback
+      });
+    }
+    
     // Hash new password
     const saltRounds = parseInt(this.configService.get('BCRYPT_SALT_ROUNDS'));
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
@@ -281,13 +332,17 @@ export class AuthService {
   }
 
   private async generateTokens(user: any): Promise<TokenResponseDto> {
-    const payload = { email: user.email, sub: user.id };
+    const payload: JwtPayload = { 
+      email: user.email, 
+      sub: user.id,
+      deviceId: uuidv4()
+    };
     
-    // Generate refresh token with longer expiry
+    // Generate refresh token
     const refreshTokenValue = uuidv4();
     const refreshExpiresAt = new Date();
-    const refreshExpirationDays = parseInt(this.configService.get('JWT_REFRESH_EXPIRATION', '7d').replace('d', ''));
-    refreshExpiresAt.setDate(refreshExpiresAt.getDate() + refreshExpirationDays); // 7 days
+    const refreshExpirationDays = parseInt(this.configService.get('JWT_REFRESH_EXPIRATION', '7'));
+    refreshExpiresAt.setDate(refreshExpiresAt.getDate() + refreshExpirationDays);
     
     // Store refresh token in database
     await this.prisma.token.create({
@@ -295,23 +350,26 @@ export class AuthService {
         value: refreshTokenValue,
         userId: user.id,
         expiresAt: refreshExpiresAt,
+        deviceId: payload.deviceId,
+        userAgent: this.request?.headers['user-agent'] || 'Unknown Device',
+        ipAddress: this.request?.ip || 'Unknown IP',
+        lastUsed: new Date()
       },
     });
     
     // Remove sensitive data from user object
-    const { password, verifyToken, ...userWithoutSensitiveInfo } = user;
+    const { password, verifyToken, resetToken, twoFactorSecret, ...userWithoutSensitiveInfo } = user;
     
-    // Return both tokens and user info
     return {
       access_token: this.jwtService.sign(payload, { 
         expiresIn: this.configService.get('JWT_ACCESS_EXPIRATION', '15m') 
       }),
       refresh_token: refreshTokenValue,
-      user: userWithoutSensitiveInfo,
+      user: userWithoutSensitiveInfo as Partial<UserEntity>,
     };
   }
 
-  private async sendVerificationEmail(user: any): Promise<void> {
+  private async sendVerificationEmail(user: UserEntity): Promise<void> {
     // Log to debug
     console.log('Verification token:', user.verifyToken);
     
@@ -335,5 +393,120 @@ export class AuthService {
         verificationUrl,
       },
     });
+  }
+
+  async generateTwoFactorSecret(userId: number): Promise<{ secret: string, otpAuthUrl: string, qrCode: string }> {
+    const user = await this.usersService.findOne(userId);
+    
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    
+    // Generate secret
+    const secret = speakeasy.generateSecret({
+      name: `YourApp:${user.email}`
+    });
+    
+    // Store secret in database (but don't enable 2FA yet)
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { 
+        twoFactorSecret: secret.base32,
+        twoFactorEnabled: false
+      }
+    });
+    
+    // Generate QR code
+    const qrCode = await QRCode.toDataURL(secret.otpauth_url);
+    
+    return {
+      secret: secret.base32,
+      otpAuthUrl: secret.otpauth_url,
+      qrCode
+    };
+  }
+
+  async verifyAndEnableTwoFactor(userId: number, code: string): Promise<boolean> {
+    const user = await this.usersService.findOne(userId);
+    
+    if (!user || !user.twoFactorSecret) {
+      throw new NotFoundException('User not found or 2FA not initiated');
+    }
+    
+    // Verify code
+    const verified = speakeasy.totp.verify({
+      secret: user.twoFactorSecret,
+      encoding: 'base32',
+      token: code
+    });
+    
+    if (!verified) {
+      throw new UnauthorizedException('Invalid authentication code');
+    }
+    
+    // Enable 2FA
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorEnabled: true }
+    });
+    
+    return true;
+  }
+
+  async disableTwoFactor(userId: number, password: string): Promise<boolean> {
+    const user = await this.usersService.findOne(userId);
+    
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    
+    // Verify password before disabling 2FA
+    if (!(await bcrypt.compare(password, user.password))) {
+      throw new UnauthorizedException('Invalid password');
+    }
+    
+    // Disable 2FA
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { 
+        twoFactorEnabled: false,
+        twoFactorSecret: null
+      }
+    });
+    
+    return true;
+  }
+
+  async verifyTwoFactorAndLogin(twoFactorDto: TwoFactorLoginDto): Promise<TokenResponseDto> {
+    try {
+      // Verify temp token
+      const decoded = this.jwtService.verify(twoFactorDto.tempToken) as JwtPayload;
+      
+      const user = await this.usersService.findOne(decoded.sub);
+      
+      if (!user || !user.twoFactorEnabled || !user.twoFactorSecret) {
+        throw new UnauthorizedException('Invalid user or 2FA not enabled');
+      }
+      
+      // Verify TOTP code
+      const verified = speakeasy.totp.verify({
+        secret: user.twoFactorSecret,
+        encoding: 'base32',
+        token: twoFactorDto.code,
+        window: 1 // Allow 1 period before/after for clock drift
+      });
+      
+      if (!verified) {
+        throw new UnauthorizedException('Invalid authentication code');
+      }
+      
+      // Complete login
+      return this.generateTokens(user);
+    } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        throw new UnauthorizedException('Two-factor authentication timeout');
+      }
+      throw error;
+    }
   }
 }

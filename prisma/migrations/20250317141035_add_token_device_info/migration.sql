@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Token" ADD COLUMN     "deviceId" TEXT,
+ADD COLUMN     "ipAddress" TEXT,
+ADD COLUMN     "lastUsed" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "userAgent" TEXT;
