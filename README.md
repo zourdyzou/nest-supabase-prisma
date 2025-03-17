@@ -24,6 +24,11 @@ A robust, secure authentication and user management API built with NestJS, Prism
 - 📝 Extensive API documentation with Swagger
 - 🔒 JWT-based authentication
 - 🗄️ Supabase database with Prisma ORM
+- 🔐 Two-Factor Authentication (TOTP)
+- 🛡️ CSRF Protection
+- 🔒 Advanced password policy enforcement
+- 📱 Device management and active sessions
+- ⚙️ Comprehensive test suite (unit and e2e)
 
 ## Prerequisites
 
@@ -49,14 +54,10 @@ A robust, secure authentication and user management API built with NestJS, Prism
    - Copy the `.env.example` file to `.env`
    - Fill in the required values (see Environment Configuration below)
 
-4. Run database migrations:
+4. Set up the database and start the application:
    ```bash
-   npx prisma migrate dev
-   ```
-
-5. Start the application:
-   ```bash
-   npm run start:dev
+   npm run setup    # Install dependencies and set up the database
+   npm run dev      # Start development server with Prisma client generation
    ```
 
 ## Environment Configuration
@@ -67,9 +68,10 @@ Configure the following environment variables in your `.env` file:
 |----------|-------------|
 | `DATABASE_URL` | Supabase connection string with pgBouncer for connection pooling |
 | `DIRECT_URL` | Direct Supabase connection string (for migrations) |
-| `OPENAI_API_KEY` | Your OpenAI API key (if using AI features) |
 | `PORT` | Port the server runs on (default: 3000) |
 | `JWT_SECRET` | Secret key for JWT token generation |
+| `JWT_ACCESS_EXPIRATION` | Access token expiration time (e.g., 15m, 1h) |
+| `JWT_REFRESH_EXPIRATION` | Refresh token expiration in days (e.g., 7) |
 | `NODE_ENV` | Environment (development/production) |
 | `FRONTEND_URL` | URL of the frontend application (for email links) |
 | `EMAIL_HOST` | SMTP host for sending emails |
@@ -83,74 +85,173 @@ Configure the following environment variables in your `.env` file:
 | `MAX_LOGIN_ATTEMPTS` | Max failed login attempts before lockout |
 | `ACCOUNT_LOCKOUT_TIME` | Account lockout duration in minutes |
 
+## Security Features
+
+### Two-Factor Authentication
+
+The API supports TOTP-based two-factor authentication:
+
+1. **Setup 2FA**: Users can generate a secret and QR code for authentication apps
+2. **Enable 2FA**: After scanning the QR code, users verify with a code to enable 2FA
+3. **2FA Login Flow**: When 2FA is enabled, login requires additional verification
+4. **Disable 2FA**: Users can disable 2FA with password verification
+
+```bash
+# Generate 2FA Secret and QR code
+POST /auth/2fa/generate
+
+# Verify and Enable 2FA
+POST /auth/2fa/verify
+{ "code": "123456" }
+
+# Complete login with 2FA
+POST /auth/2fa/authenticate
+{ "tempToken": "...", "code": "123456" }
+
+# Disable 2FA
+POST /auth/2fa/disable
+{ "password": "yourpassword" }
+```
+
+### Password Policies
+
+The API enforces strong password requirements:
+
+- Minimum length (8 characters)
+- Mix of uppercase and lowercase letters
+- Numbers and special characters
+- Checks against common passwords
+- Contextual validation (avoids using personal information)
+
+### CSRF Protection
+
+Cross-Site Request Forgery protection is enabled for all state-changing operations:
+
+1. Request a CSRF token: `GET /auth/csrf-token`
+2. Include the token in the `csrf-token` header for all POST/PUT/DELETE requests
+
+### Session Management
+
+Users can manage their active sessions:
+
+```bash
+# View active sessions
+GET /auth/sessions
+
+# Terminate specific session
+DELETE /auth/sessions/:id
+
+# Terminate all other sessions
+DELETE /auth/sessions
+```
+
 ## API Documentation
 
 Once the application is running, access Swagger documentation at:
-
+```
+http://localhost:3000/api
+```
 
 ### Key Endpoints
 
+#### Authentication
 - **POST /auth/signup** - Register a new user
 - **POST /auth/login** - Authenticate a user
 - **POST /auth/refresh** - Refresh access token
 - **POST /auth/logout** - Log out user (revoke tokens)
-- **GET /auth/verify-email** - Verify email with token
-- **POST /auth/resend-verification** - Resend verification email
-- **POST /auth/forgot-password** - Request password reset
-- **POST /auth/reset-password** - Reset password with token
 - **GET /auth/profile** - Get user profile (protected)
 
-## Development
+#### Email Verification
+- **GET /auth/verify-email** - Verify email with token
+- **POST /auth/resend-verification** - Resend verification email
 
-### Running Tests
+#### Password Management
+- **POST /auth/forgot-password** - Request password reset
+- **POST /auth/reset-password** - Reset password with token
 
+#### Two-Factor Authentication
+- **POST /auth/2fa/generate** - Generate 2FA secret and QR code
+- **POST /auth/2fa/verify** - Verify and enable 2FA
+- **POST /auth/2fa/authenticate** - Complete login with 2FA
+- **POST /auth/2fa/disable** - Disable 2FA
+
+#### Security
+- **GET /auth/csrf-token** - Get CSRF token
+- **GET /auth/sessions** - List active sessions
+- **DELETE /auth/sessions/:id** - Terminate specific session
+- **DELETE /auth/sessions** - Terminate all other sessions
+
+## Development Commands
+
+### Application
 ```bash
-npm run test
+# Run development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Run in production mode
+npm run start:prod
+
+# Complete setup (install dependencies + db setup)
+npm run setup
 ```
 
-### Linting
-
-### e2e tests
-
+### Database Management
 ```bash
+# Generate Prisma client
+npm run prisma:generate
+
+# Run migrations
+npm run prisma:migrate
+
+# Reset database
+npm run prisma:reset
+
+# Seed database
+npm run prisma:seed
+
+# Open Prisma Studio
+npm run prisma:studio
+
+# Complete database setup (generate, migrate, seed)
+npm run db:setup
+
+# Reset and reseed database
+npm run db:reset
+```
+
+### Testing
+```bash
+# Run unit tests
+npm test
+
+# Run tests with coverage
+npm run test:cov
+
+# Run end-to-end tests
 npm run test:e2e
+
+# Watch mode
+npm run test:watch
 ```
 
-### Cleanup
+## Testing
 
-```bash
-npm run cleanup
-```
+The API includes comprehensive test coverage:
 
+### Unit Tests
+- Authentication service and guards
+- Password policy enforcement
+- Two-factor authentication logic
 
-### Run migrations
-
-```bash
-npx prisma migrate dev
-```
-
-### Run seed
-
-```bash
-npx prisma db seed
-```
-
-### Reset database 
-
-```bash
-npx prisma db reset
-```
-
-
-## Security Features
-
-- Password hashing with bcrypt
-- JWT token-based authentication
-- Account lockout after failed login attempts
-- Email verification
+### Integration Tests
+- Complete authentication flows
+- Email verification process
+- Password reset functionality
+- Two-factor authentication flow
 - CSRF protection
-- Rate limiting
-- Secure HTTP headers
 
 ## License
 
@@ -161,3 +262,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [NestJS Documentation](https://docs.nestjs.com/)
 - [Prisma Documentation](https://www.prisma.io/docs/)
 - [Supabase Documentation](https://supabase.com/docs)
+- [JWT.io](https://jwt.io/)
+- [TOTP RFC](https://datatracker.ietf.org/doc/html/rfc6238)

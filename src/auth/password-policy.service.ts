@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import zxcvbn from 'zxcvbn';
+import * as zxcvbn from 'zxcvbn';
 
 @Injectable()
 export class PasswordPolicyService {

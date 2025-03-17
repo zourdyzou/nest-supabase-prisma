@@ -1,5 +1,5 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { validationSchema } from './config/validation.schema';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
@@ -7,8 +7,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { MailModule } from './mail/mail.module';
 import { TasksModule } from './tasks/tasks.module';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { CsrfMiddleware } from './common/middlewares/csrf.middleware';
-import cookieParser from 'cookie-parser';
+import { csrfMiddleware } from './common/middlewares/csrf.middleware';
+import * as cookieParser from 'cookie-parser';
 
 @Module({
   imports: [
@@ -36,9 +36,18 @@ import cookieParser from 'cookie-parser';
   providers: [],
 })
 export class AppModule implements NestModule {
+  constructor(private configService: ConfigService) {}
+
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(cookieParser(), CsrfMiddleware)
-      .forRoutes('*');
+    // Always apply cookie parser
+    const middlewares = [cookieParser()];
+    
+    // Only apply CSRF in non-development environments
+    const nodeEnv = this.configService.get('NODE_ENV', 'development');
+    if (nodeEnv !== 'development') {
+      middlewares.push(csrfMiddleware);
+    }
+    
+    consumer.apply(...middlewares).forRoutes('*');
   }
 }
