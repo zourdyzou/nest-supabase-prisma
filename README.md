@@ -14,6 +14,38 @@
 
 A robust, secure authentication starter kit built with NestJS, Prisma, and Supabase. This starter kit provides complete authentication flows including signup with email verification, login with rate limiting, password reset, and token-based authentication.
 
+## Table of Contents
+
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+  - [Environment Variables](#environment-variables)
+  - [Database Setup](#database-setup)
+- [Running the Application](#running-the-application)
+  - [Development](#development)
+  - [Production](#production)
+- [API Documentation](#api-documentation)
+- [Authentication](#authentication)
+  - [Registration Flow](#registration-flow)
+  - [Login Flow](#login-flow)
+  - [Password Reset](#password-reset)
+  - [Two-Factor Authentication](#two-factor-authentication)
+- [Email Service with Resend](#email-service-with-resend)
+  - [Email Templates](#email-templates)
+  - [Using the Mail Service](#using-the-mail-service)
+- [Security Features](#security-features)
+  - [Rate Limiting](#rate-limiting)
+  - [Password Policies](#password-policies)
+  - [CSRF Protection](#csrf-protection)
+- [Scaling and Clustering](#scaling-and-clustering)
+  - [TypeScript Native Clustering](#typescript-native-clustering)
+  - [PM2 Process Manager](#pm2-process-manager)
+- [Database Management](#database-management)
+- [Testing](#testing)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Features
 
 - 🔐 Complete authentication flow (signup, login, logout)
@@ -365,6 +397,65 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Supabase Documentation](https://supabase.com/docs)
 - [JWT.io](https://jwt.io/)
 - [TOTP RFC](https://datatracker.ietf.org/doc/html/rfc6238)
+
+## Scaling and Clustering
+
+This starter kit includes built-in support for horizontal scaling across multiple CPU cores, providing significant performance improvements for production environments.
+
+### TypeScript Native Clustering
+
+The application includes a TypeScript-based clustering implementation that automatically creates worker processes equal to the number of CPU cores:
+
+```bash
+# Start the application with clustering in development mode
+npm run start:cluster:dev
+
+# Build and start in production mode
+npm run build:cluster
+npm run start:cluster
+```
+
+With clustering, the application can handle much higher concurrency by distributing traffic across multiple worker processes.
+
+### PM2 Process Manager
+
+For production environments, we recommend using PM2 for more advanced process management, monitoring, and automatic restarts:
+
+1. Install PM2 globally:
+   ```bash
+   npm install -g pm2
+   ```
+
+2. Start the application with PM2:
+   ```bash
+   # Start in production mode
+   npm run start:pm2
+   
+   # Start in development mode
+   npm run start:pm2:dev
+   
+   # Stop the application
+   npm run stop:pm2
+   
+   # Monitor the application
+   npm run monitor:pm2
+   ```
+
+The included `ecosystem.config.ts` file configures PM2 to:
+- Utilize all available CPU cores
+- Automatically restart failed instances
+- Implement load balancing between instances
+- Set memory limits and restart strategies
+```
+
+### Stateless Design Considerations
+
+When running in a clustered environment, maintain a stateless design:
+
+1. Don't store user sessions or critical data in memory (use Redis or the database)
+2. Be careful with local file operations
+3. Use distributed locking for critical sections
+4. Consider using Redis for rate limiting across multiple instances
 
 ## Contributing
 

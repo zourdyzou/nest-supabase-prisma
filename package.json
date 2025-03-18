@@ -28,7 +28,14 @@
     "db:reset": "npm run prisma:reset && npm run prisma:seed",
     "setup": "npm install && npm run db:setup",
     "nuke:clean": "rm -rf dist node_modules && rm -rf package-lock.json && rm -rf yarn.lock",
-    "reinstall": "npm run nuke:clean && npm run install"
+    "reinstall": "npm run nuke:clean && npm run install",
+    "build:cluster": "nest build && tsc -p tsconfig.cluster.json",
+    "start:cluster:dev": "ts-node src/cluster.ts",
+    "start:cluster": "node dist/cluster-prod.js",
+    "start:pm2": "pm2 start ecosystem.config.js",
+    "start:pm2:dev": "pm2 start ecosystem.config.js --env development",
+    "stop:pm2": "pm2 stop nest-supabase-starter",
+    "monitor:pm2": "pm2 monit"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
